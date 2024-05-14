@@ -115,7 +115,6 @@ xcopy C:\KamataEngine\DirectXGame\Resources "$(OutDirFullPath)NoviceResources" /
     <ClCompile Include="C:\KamataEngine\DirectXGame\base\TextureManager.cpp" />
     <ClCompile Include="C:\KamataEngine\DirectXGame\2d\ImGuiManager.cpp" />
     <ClCompile Include="C:\KamataEngine\Adapter\Novice.cpp" />
-    <ClCompile Include="Complex.cpp" />
     <ClCompile Include="FFT.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>

@@ -18,11 +18,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	const int N = 8;
 	Complex originalData[N] = { {0,0},{1,0},{2,0},{3,0},{4,0},{5,0},{6,0},{7,0} };
-	Complex fftData[N];
-	Complex ifftData[N];
+	Complex FFTData[N];
+	Complex IFFTData[N];
 
-	bool fftComputed = false;
-	bool inverseFftComputed = false;
+	bool FFTComputed = false;
+	bool inverseFFTComputed = false;
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0)
@@ -38,20 +38,20 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		/// ↓更新処理ここから
 		///
 
-		if (keys[DIK_SPACE] && !fftComputed) {
+		if (keys[DIK_SPACE] && !FFTComputed) {
 			for (int i = 0; i < N; ++i) {
-				fftData[i] = originalData[i];
+				FFTData[i] = originalData[i];
 			}
-			FFT(fftData, N);
-			fftComputed = true;
+			FFT(FFTData, N);
+			FFTComputed = true;
 		}
 
-		if (keys[DIK_RETURN] && fftComputed && !inverseFftComputed) {
+		if (keys[DIK_RETURN] && FFTComputed && !inverseFFTComputed) {
 			for (int i = 0; i < N; ++i) {
-				ifftData[i] = fftData[i];
+				IFFTData[i] = FFTData[i];
 			}
-			InverseFFT(ifftData, N);
-			inverseFftComputed = true;
+			InverseFFT(IFFTData, N);
+			inverseFFTComputed = true;
 		}
 
 		///
@@ -62,17 +62,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		/// ↓描画処理ここから
 		///
 
-		if (fftComputed) {
+		if (FFTComputed) {
 			Novice::ScreenPrintf(0, 0, "FFT:");
 			for (int i = 0; i < N; ++i) {
-				Novice::ScreenPrintf(0, 20 * (i + 1), "fftData[%d]: (%.5f, %.5f)", i, fftData[i].real, fftData[i].imag);
+				Novice::ScreenPrintf(0, 20 * (i + 1), "FFTData[%d]: (%.5f, %.5f)", i, FFTData[i].real, FFTData[i].imag);
 			}
 		}
 
-		if (inverseFftComputed) {
+		if (inverseFFTComputed) {
 			Novice::ScreenPrintf(0, 20 * (N + 1), "Inverse FFT:");
 			for (int i = 0; i < N; ++i) {
-				Novice::ScreenPrintf(0, 20 * (N + 2 + i), "ifftData[%d]: (%.5f, %.5f)", i, ifftData[i].real, ifftData[i].imag);
+				Novice::ScreenPrintf(0, 20 * (N + 2 + i), "IFFTData[%d]: (%.5f, %.5f)", i, IFFTData[i].real, IFFTData[i].imag);
 			}
 		}
 

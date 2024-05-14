@@ -21,9 +21,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	Complex FFTData[N];
 	Complex IFFTData[N];
 
-	bool FFTComputed = false;
-	bool inverseFFTComputed = false;
-
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0)
 	{
@@ -38,21 +35,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		/// ↓更新処理ここから
 		///
 
-		if (keys[DIK_SPACE] && !FFTComputed) {
-			for (int i = 0; i < N; ++i) {
-				FFTData[i] = originalData[i];
-			}
-			FFT(FFTData, N);
-			FFTComputed = true;
+		for (int i = 0; i < N; ++i) {
+			FFTData[i] = originalData[i];
 		}
+		FFT(FFTData, N);
 
-		if (keys[DIK_RETURN] && FFTComputed && !inverseFFTComputed) {
-			for (int i = 0; i < N; ++i) {
-				IFFTData[i] = FFTData[i];
-			}
-			InverseFFT(IFFTData, N);
-			inverseFFTComputed = true;
+		for (int i = 0; i < N; ++i) {
+			IFFTData[i] = FFTData[i];
 		}
+		InverseFFT(IFFTData, N);
 
 		///
 		/// ↑更新処理ここまで
@@ -62,19 +53,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		/// ↓描画処理ここから
 		///
 
-		if (FFTComputed) {
-			Novice::ScreenPrintf(0, 0, "FFT:");
-			for (int i = 0; i < N; ++i) {
-				Novice::ScreenPrintf(0, 20 * (i + 1), "FFTData[%d]: (%.5f, %.5f)", i, FFTData[i].real, FFTData[i].imag);
-			}
+		Novice::ScreenPrintf(0, 0, "FFT:");
+		for (int i = 0; i < N; ++i) {
+			Novice::ScreenPrintf(0, 20 * (i + 1), "FFTData[%d]: (%.5f, %.5f)", i, FFTData[i].real, FFTData[i].imag);
 		}
 
-		if (inverseFFTComputed) {
-			Novice::ScreenPrintf(0, 20 * (N + 1), "Inverse FFT:");
-			for (int i = 0; i < N; ++i) {
-				Novice::ScreenPrintf(0, 20 * (N + 2 + i), "IFFTData[%d]: (%.5f, %.5f)", i, IFFTData[i].real, IFFTData[i].imag);
-			}
+
+		Novice::ScreenPrintf(0, 20 * (N + 1), "Inverse FFT:");
+		for (int i = 0; i < N; ++i) {
+			Novice::ScreenPrintf(0, 20 * (N + 2 + i), "IFFTData[%d]: (%.5f, %.5f)", i, IFFTData[i].real, IFFTData[i].imag);
 		}
+
 
 		///
 		/// ↑描画処理ここまで

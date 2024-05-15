@@ -2,6 +2,34 @@
 #include <iostream>
 #include "Complex.h"
 #include "FFT.h"
+#include <cmath>
+#include <vector>
+
+#define PI 3.141592653589793238462643383279502884
+
+std::vector<Complex> GenerateSineWave(int numSamples, double frequency, double sampleRate)
+{
+	std::vector<Complex> wave(numSamples);
+	for (int i = 0; i < numSamples; ++i)
+	{
+		double t = i / sampleRate;
+		wave[i].real = sin(2 * PI * frequency * t);
+		wave[i].imag = 0;
+	}
+	return wave;
+}
+
+void DrawWave(const std::vector<Complex>& wave, int offsetX, int offsetY, int scaleX, int scaleY)
+{
+	for (int i = 1; i < wave.size(); ++i)
+	{
+		int x1 = offsetX + (i - 1) * scaleX;
+		int y1 = static_cast<int>(offsetY - wave[i - 1].real * scaleY);
+		int x2 = offsetX + i * scaleX;
+		int y2 = static_cast<int>(offsetY - wave[i].real * scaleY);
+		Novice::DrawLine(x1, y1, x2, y2, 0xFFFFFFFF);
+	}
+}
 
 const char kWindowTitle[] = "提出用課題";
 
@@ -16,10 +44,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	char keys[256] = { 0 };
 	char preKeys[256] = { 0 };
 
-	const int N = 8;
-	Complex originalData[N] = { {0,0},{1,0},{2,0},{3,0},{4,0},{5,0},{6,0},{7,0} };
-	Complex FFTData[N];
-	Complex IFFTData[N];
+	const int N = 1024; // 波形のサンプル数
+	const double frequency = 0.5; // 周波数
+	const double sampleRate = 100.0; // サンプルレート
+
+	std::vector<Complex> wave = GenerateSineWave(N, frequency, sampleRate);
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0)
@@ -35,15 +64,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		/// ↓更新処理ここから
 		///
 
-		for (int i = 0; i < N; ++i) {
-			FFTData[i] = originalData[i];
+		// 特定のキーが押されたらFFTと逆FFTを計算する
+		if (keys[DIK_SPACE] || !preKeys[DIK_SPACE])
+		{
+			FFT(wave.data(), N);
 		}
-		FFT(FFTData, N);
 
-		for (int i = 0; i < N; ++i) {
-			IFFTData[i] = FFTData[i];
+		if (keys[DIK_RETURN] || !preKeys[DIK_RETURN])
+		{
+			InverseFFT(wave.data(), N);
 		}
-		InverseFFT(IFFTData, N);
 
 		///
 		/// ↑更新処理ここまで
@@ -53,17 +83,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		/// ↓描画処理ここから
 		///
 
-		Novice::ScreenPrintf(0, 0, "FFT:");
-		for (int i = 0; i < N; ++i) {
-			Novice::ScreenPrintf(0, 20 * (i + 1), "FFTData[%d]: (%.5f, %.5f)", i, FFTData[i].real, FFTData[i].imag);
-		}
-
-
-		Novice::ScreenPrintf(0, 20 * (N + 1), "Inverse FFT:");
-		for (int i = 0; i < N; ++i) {
-			Novice::ScreenPrintf(0, 20 * (N + 2 + i), "IFFTData[%d]: (%.5f, %.5f)", i, IFFTData[i].real, IFFTData[i].imag);
-		}
-
+		DrawWave(wave, 100, 360, 1, 100);
 
 		///
 		/// ↑描画処理ここまで

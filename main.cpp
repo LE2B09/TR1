@@ -4,9 +4,12 @@
 #include "FFT.h"
 #include <cmath>
 #include <vector>
+#include <imgui.h>
+#include <string>
 
 #define PI 3.141592653589793238462643383279502884
 
+// 正弦波を生成する関数
 std::vector<Complex> GenerateSineWave(int numSamples, double frequency, double sampleRate)
 {
 	std::vector<Complex> wave(numSamples);
@@ -19,6 +22,7 @@ std::vector<Complex> GenerateSineWave(int numSamples, double frequency, double s
 	return wave;
 }
 
+// 波形を描画する関数
 void DrawWave(const std::vector<Complex>& wave, int offsetX, int offsetY, int scaleX, int scaleY)
 {
 	for (int i = 1; i < wave.size(); ++i)
@@ -29,6 +33,22 @@ void DrawWave(const std::vector<Complex>& wave, int offsetX, int offsetY, int sc
 		int y2 = static_cast<int>(offsetY - wave[i].real * scaleY);
 		Novice::DrawLine(x1, y1, x2, y2, 0xFFFFFFFF);
 	}
+}
+
+// 複数の周波数成分を持つ合成波を生成する関数
+std::vector<Complex> GenerateCompositeWave(int numSamples, double sampleRate, const std::vector<float>& frequencies)
+{
+	std::vector<Complex> wave(numSamples);
+	for (int i = 0; i < numSamples; ++i)
+	{
+		double t = i / sampleRate;
+		for (double freq : frequencies)
+		{
+			wave[i].real += sin(2 * PI * freq * t);
+		}
+		wave[i].imag = 0;
+	}
+	return wave;
 }
 
 const char kWindowTitle[] = "提出用課題";
@@ -45,10 +65,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	char preKeys[256] = { 0 };
 
 	const int N = 1024; // 波形のサンプル数
-	const double frequency = 0.5; // 周波数
 	const double sampleRate = 100.0; // サンプルレート
+	std::vector<float> frequencies = { 0.5f, 1.0f, 2.0f }; // 複数の周波数成分
 
-	std::vector<Complex> wave = GenerateSineWave(N, frequency, sampleRate);
+	std::vector<Complex> wave = GenerateCompositeWave(N, sampleRate, frequencies);
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0)
@@ -75,6 +95,22 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			InverseFFT(wave.data(), N);
 		}
 
+		ImGui::Begin("Window");
+		// 各周波数成分をスライダーで調整可能にする
+		for (int i = 0; i < frequencies.size(); ++i)
+		{
+			// 引数リストの一致を確認する
+			ImGui::InputFloat(("Frequency " + std::to_string(i + 1)).c_str(), &frequencies[i],0.1f);
+		}
+
+		// 周波数が変更された場合、合成波を再生成
+		if (ImGui::Button("Update Wave"))
+		{
+			wave = GenerateCompositeWave(N, sampleRate, frequencies);
+		}
+
+		ImGui::End();
+		
 		///
 		/// ↑更新処理ここまで
 		///

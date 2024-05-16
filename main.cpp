@@ -9,7 +9,7 @@
 
 #define PI 3.141592653589793238462643383279502884
 
-// 正弦波を生成する関数
+// 余弦波を生成する関数
 std::vector<Complex> GenerateSineWave(int numSamples, double frequency, double sampleRate)
 {
 	std::vector<Complex> wave(numSamples);
@@ -99,8 +99,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		// 各周波数成分をスライダーで調整可能にする
 		for (int i = 0; i < frequencies.size(); ++i)
 		{
-			// 引数リストの一致を確認する
-			ImGui::InputFloat(("Frequency " + std::to_string(i + 1)).c_str(), &frequencies[i],0.1f);
+			ImGui::InputFloat(("Frequency " + std::to_string(i + 1)).c_str(), &frequencies[i], 0.1f);
 		}
 
 		// 周波数が変更された場合、合成波を再生成
@@ -110,7 +109,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		}
 
 		ImGui::End();
-		
+
 		///
 		/// ↑更新処理ここまで
 		///

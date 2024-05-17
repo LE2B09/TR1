@@ -7,7 +7,17 @@
 #include <imgui.h>
 #include <string>
 
+#include <al.h>
+#include <alc.h>
+#include <iostream>
+
+#define SAMPLINGRATE 44100 
+#define BUFFER_SIZE 4410
+#pragma comment(lib, "C:/Program Files (x86)/OpenAL 1.1 SDK/libs/Win64/OpenAL32.lib")
+
 #define PI 3.141592653589793238462643383279502884
+
+using namespace std;
 
 // 余弦波を生成する関数
 std::vector<Complex> GenerateSineWave(int numSamples, double frequency, double sampleRate)
@@ -65,10 +75,40 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	char preKeys[256] = { 0 };
 
 	const int N = 1024; // 波形のサンプル数
-	const double sampleRate = 100.0; // サンプルレート
-	std::vector<float> frequencies = { 0.5f, 1.0f, 2.0f }; // 複数の周波数成分
+	//const double sampleRate = SAMPLINGRATE; // サンプルレート
 
-	std::vector<Complex> wave = GenerateCompositeWave(N, sampleRate, frequencies);
+	std::vector<Complex> wave(N);
+
+	//マイクセットアップ
+	ALCdevice* mic = alcCaptureOpenDevice(NULL, SAMPLINGRATE, AL_FORMAT_MONO16, BUFFER_SIZE);
+	//スピーカーセットアップ
+	ALCdevice* speaker = alcOpenDevice(NULL);
+	//いつもの
+	ALCcontext* context = alcCreateContext(speaker, NULL);
+	alcMakeContextCurrent(context);
+
+	//バッファ(保存領域)とソース(音源)を宣言
+	//ストリーミング用にバッファを二つ
+	ALuint buffer[2];
+	ALuint source;
+	//それを生成
+	alGenBuffers(2, &buffer[0]);
+	alGenSources(1, &source);
+
+	//マイクから録音した音を一旦入れておく
+	ALshort* store = new ALshort[BUFFER_SIZE];
+
+	//再生状態を監視するための準備
+	alBufferData(buffer[0], AL_FORMAT_MONO16, &store[0], 0, SAMPLINGRATE);
+	alSourceQueueBuffers(source, 1, &buffer[0]);
+	alSourcePlay(source);
+
+	//録音開始
+	alcCaptureStart(mic);
+
+	//録音と再生を制御
+	int a = 0, count = 100;
+	ALint sample, state;
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0)
@@ -84,31 +124,77 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		/// ↓更新処理ここから
 		///
 
-		// 特定のキーが押されたらFFTと逆FFTを計算する
-		if (keys[DIK_SPACE] || !preKeys[DIK_SPACE])
-		{
+		//sourceが再生中か確認
+		alGetSourcei(source, AL_BUFFERS_PROCESSED, &state);
+		//録音可能なバッファ長を取得
+		alcGetIntegerv(mic, ALC_CAPTURE_SAMPLES, sizeof(sample), &sample);
+		//再生が終わり、録音が可能なとき
+		if (sample > 0 && state == 1) {
+			//録音してstoreに格納
+			alcCaptureSamples(mic, (ALCvoid*)&store[0], sample);
+			//再生バッファをソースから外す
+			alSourceUnqueueBuffers(source, 1, &buffer[a]);
+			//待機バッファをソースに適用
+			alSourceQueueBuffers(source, 1, &buffer[a ^ 1]);
+			//再生
+			alSourcePlay(source);
+			//待機バッファに録音した音を入れる
+			alBufferData(buffer[a], AL_FORMAT_MONO16, &store[0], sample * sizeof(unsigned short), SAMPLINGRATE);
+			//ここでバッファの切り替え
+			a = a ^ 1;
+			count--;
+
+			// FFTにかけるためのwaveデータを準備
+			for (int i = 0; i < N; ++i) {
+				wave[i].real = store[i];
+				wave[i].imag = 0;
+			}
+			// FFTを計算
 			FFT(wave.data(), N);
 		}
-
-		if (keys[DIK_RETURN] || !preKeys[DIK_RETURN])
-		{
-			InverseFFT(wave.data(), N);
+		if (count <= 0) {
+			break;
 		}
 
-		ImGui::Begin("Window");
-		// 各周波数成分をスライダーで調整可能にする
-		for (int i = 0; i < frequencies.size(); ++i)
-		{
-			ImGui::InputFloat(("Frequency " + std::to_string(i + 1)).c_str(), &frequencies[i], 0.1f);
-		}
 
-		// 周波数が変更された場合、合成波を再生成
-		if (ImGui::Button("Update Wave"))
-		{
-			wave = GenerateCompositeWave(N, sampleRate, frequencies);
-		}
+		//sourceが再生中か確認
+		alGetSourcei(source, AL_BUFFERS_PROCESSED, &state);
+		//録音可能なバッファ長を取得
+		alcGetIntegerv(mic, ALC_CAPTURE_SAMPLES, sizeof(sample), &sample);
+		//再生が終わり、録音が可能なとき
+		if (sample > 0 && state == 1) {
+			//録音してstoreに格納
+			alcCaptureSamples(mic, (ALCvoid*)&store[0], sample);
+			//再生バッファをソースから外す
+			alSourceUnqueueBuffers(source, 1, &buffer[a]);
+			//待機バッファをソースに適用
+			alSourceQueueBuffers(source, 1, &buffer[a ^ 1]);
+			//再生
+			alSourcePlay(source);
+			//待機バッファに録音した音を入れる
+			alBufferData(buffer[a], AL_FORMAT_MONO16, &store[0], sample * sizeof(unsigned short), SAMPLINGRATE);
+			//ここでバッファの切り替え
+			a = a ^ 1;
+			count--;
 
-		ImGui::End();
+			// FFTにかけるためのwaveデータを準備
+			for (int i = 0; i < N; ++i) {
+				wave[i].real = store[i] / 32768.0; // 16ビットPCMの正規化
+				wave[i].imag = 0;
+			}
+
+			// 残りの部分をゼロクリア
+			for (int i = sample; i < N; ++i) {
+				wave[i].real = 0;
+				wave[i].imag = 0;
+			}
+
+			// FFTを計算
+			FFT(wave.data(), N);
+		}
+		if (count == 0) {
+			break;
+		}
 
 		///
 		/// ↑更新処理ここまで
@@ -118,7 +204,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		/// ↓描画処理ここから
 		///
 
-		DrawWave(wave, 100, 360, 1, 100);
+		Novice::DrawBox(0, 0, 1280, 720, 0.0f, BLACK, kFillModeSolid);
+
+		DrawWave(wave, 100, 360, 1, 1);
 
 		///
 		/// ↑描画処理ここまで
@@ -133,6 +221,21 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			break;
 		}
 	}
+
+	//マイク停止
+	alcCaptureStop(mic);
+
+	//バッファ・ソースの後始末
+	alDeleteBuffers(2, &buffer[0]);
+	alDeleteSources(1, &source);
+
+	//OpenALの後始末
+	alcMakeContextCurrent(NULL);
+	alcDestroyContext(context);
+	//マイクを閉じる
+	alcCloseDevice(mic);
+	//スピーカを閉じる
+	alcCloseDevice(speaker);
 
 	// ライブラリの終了
 	Novice::Finalize();

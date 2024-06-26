@@ -19,7 +19,7 @@
 
 using namespace std;
 
-// 余弦波を生成する関数
+// 正弦波を生成する関数
 std::vector<Complex> GenerateSineWave(int numSamples, double frequency, double sampleRate)
 {
 	std::vector<Complex> wave(numSamples);
@@ -107,7 +107,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	alcCaptureStart(mic);
 
 	//録音と再生を制御
-	int a = 0, count = 100;
+	int a = 0, count = 240;
 	ALint sample, state;
 
 	// ウィンドウの×ボタンが押されるまでループ

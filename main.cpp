@@ -58,13 +58,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	char keys[256] = { 0 };
 	char preKeys[256] = { 0 };
 
-	const int N = 1024; // 波形のサンプル数
+	const int N = 768; // 波形のサンプル数
 
 	int Sound1 = Novice::LoadAudio("./c00002_kamatamago_Chopin_Etude-op10-3.mp3");
 	int voiceHandle = -1;
 
-
 	std::vector<Complex> wave(N);
+
+	// 録音と再生の状態管理
+	bool isRecording = false;
+	bool isPlaying = false;
 
 	//マイクセットアップ
 	ALCdevice* mic = alcCaptureOpenDevice(NULL, SAMPLINGRATE, AL_FORMAT_MONO16, BUFFER_SIZE);
@@ -90,7 +93,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	alcMakeContextCurrent(context);
 
 	//バッファ(保存領域)とソース(音源)を宣言
-	//ストリーミング用にバッファを二つ
 	ALuint buffer[2];
 	ALuint source;
 	//それを生成
@@ -99,18 +101,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	//マイクから録音した音を一旦入れておく
 	ALshort* store = new ALshort[N];
+	std::vector<ALshort> recordedData; // 録音データを保存するベクター
+
+	//録音開始
+	alcCaptureStart(mic);
 
 	//再生状態を監視するための準備
 	alBufferData(buffer[0], AL_FORMAT_MONO16, &store[0], 0, SAMPLINGRATE);
 	alSourceQueueBuffers(source, 1, &buffer[0]);
 	alSourcePlay(source);
 
-	//録音開始
-	alcCaptureStart(mic);
-
 	//録音と再生を制御
-	int a = 0, count = 240;
-	ALint sample, state;
+	//int a = 0,count = 240;
+	ALint sample = NULL, state;
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0)
@@ -128,59 +131,51 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		if (Novice::IsPlayingAudio(voiceHandle) == 0 || voiceHandle == -1)
 		{
-			voiceHandle = Novice::PlayAudio(Sound1, true, 0.5f);
+			voiceHandle = Novice::PlayAudio(Sound1, true, 0.0f);
 		}
 
-		//sourceが再生中か確認
-		alGetSourcei(source, AL_BUFFERS_PROCESSED, &state);
-		//録音可能なバッファ長を取得
-		alcGetIntegerv(mic, ALC_CAPTURE_SAMPLES, sizeof(sample), &sample);
-		//再生が終わり、録音が可能なとき
-		if (sample > 0 && state == 1) {
+		// ImGuiウィジェットの描画
+		ImGui::Begin("Control Panel");
+
+		if (ImGui::Button("Start Recording")) {
+			isRecording = true;
+			recordedData.clear(); // 録音データをクリア
+			alcCaptureStart(mic);
+		}
+
+		if (ImGui::Button("Stop Recording")) {
+			isRecording = false;
+			alcCaptureStop(mic);
+		}
+
+		if (ImGui::Button("Play Recorded Audio")) {
+			isPlaying = true;
+			// 録音データを再生用バッファにコピー
+			alBufferData(buffer[0], AL_FORMAT_MONO16, recordedData.data(), static_cast<ALshort>(recordedData.size() * sizeof(ALshort)), SAMPLINGRATE);
+			alSourceQueueBuffers(source, 1, &buffer[0]);
+			alSourcePlay(source);
+		}
+
+		ImGui::End();
+
+		// 録音処理
+		if (isRecording) {
+			// 録音可能なバッファ長を取得
+			alcGetIntegerv(mic, ALC_CAPTURE_SAMPLES, sizeof(sample), &sample);
 			//録音してstoreに格納
 			if (sample > N) sample = N; // バッファオーバーフローを防ぐ
 			alcCaptureSamples(mic, (ALCvoid*)&store[0], sample);
 
-			// デバッグ: 録音データを表示
-			for (int i = 0; i < sample; ++i) {
-				std::cout << "Sample[" << i << "] = " << store[i] << std::endl;
-			}
-
-			//再生バッファをソースから外す
-			alSourceUnqueueBuffers(source, 1, &buffer[a]);
-			//待機バッファをソースに適用
-			alSourceQueueBuffers(source, 1, &buffer[a ^ 1]);
-			//再生
-			alSourcePlay(source);
-			//待機バッファに録音した音を入れる
-			alBufferData(buffer[a], AL_FORMAT_MONO16, &store[0], sample * sizeof(ALshort), SAMPLINGRATE);
-			//ここでバッファの切り替え
-			a = a ^ 1;
-			//count--;
-
-			// FFTにかけるためのwaveデータを準備
-			for (int i = 0; i < sample; ++i) {
-				wave[i].real = store[i] / 32768.0; // 16ビットPCMの正規化
-				wave[i].imag = 0;
-			}
-
-			// 残りの部分をゼロクリア
-			for (int i = sample; i < N; ++i) {
-				wave[i].real = 0;
-				wave[i].imag = 0;
-			}
-
-			// FFTを計算
-			FFT(wave.data(), N);
-
-			// デバッグ: FFTの結果を表示
-			for (int i = 0; i < N; ++i) {
-				std::cout << "FFT[" << i << "] = (" << wave[i].real << ", " << wave[i].imag << ")" << std::endl;
-			}
+			// 録音データを保存
+			recordedData.insert(recordedData.end(), store, store + sample);
 		}
 
-		if (count == 0) {
-			break;
+		// 再生状態を監視
+		alGetSourcei(source, AL_SOURCE_STATE, &state);
+
+		if (isPlaying && state != AL_PLAYING) {
+			// 再生が終わったらフラグをリセット
+			isPlaying = false;
 		}
 
 		///
@@ -193,7 +188,21 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Novice::DrawBox(0, 0, 1280, 720, 0.0f, BLACK, kFillModeSolid);
 
-		DrawWave(wave, 100, 360, 1, 100); // scaleYを大きくして波形を見やすくする
+		// 録音中の波形を描画
+		if (isRecording) {
+			for (int i = 0; i < sample; ++i) {
+				wave[i].real = store[i] / 32768.0; // 16ビットPCMの正規化
+				wave[i].imag = 0;
+			}
+
+			// 残りの部分をゼロクリア
+			for (int i = sample; i < N; ++i) {
+				wave[i].real = 0;
+				wave[i].imag = 0;
+			}
+
+			DrawWave(wave, 250, 360, 1, 100); // scaleYを大きくして波形を見やすくする
+		}
 
 		///
 		/// ↑描画処理ここまで
